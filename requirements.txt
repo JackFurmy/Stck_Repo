@@ -1,0 +1,8 @@
+requests
+beautifulsoup4
+lxml
+feedparser
+readability-lxml
+vaderSentiment
+yfinance
+discord.py>=2.3
