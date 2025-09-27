@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Virtual env
+.venv/
+
+# Logs / cache / state
+*.log
+.news_cache.json
+.posted_*.json
+
+# Data outputs
+*.csv
+*.tsv
+
+# Secrets
+.env
+*.env
+credentials.json
+
+# macOS / IDE
+.DS_Store
+.vscode/
+.idea/
