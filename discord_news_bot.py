@@ -4,15 +4,14 @@
 """
 Discord bot wrapper around news_search_scraper.py
 
-- Slash command: /news symbol: RR.L (or PLTR/NVDA/company name)
-- Chat shortcut: send '/PLTR' in a channel (requires Message Content Intent)
-- Auto-creates a channel webhook named 'news-bot' and passes it to the scraper
-- For UK tickers, forwards YAHOO_COOKIES to the scraper
+Slash command: /news symbol: RR.L (or PLTR/NVDA/company name)
+Text shortcut: send '/PLTR' in a channel (requires Message Content Intent)
 
 Env:
-  DISCORD_TOKEN   = <bot token>   (required)
-  YAHOO_COOKIES   = "A1=...; A1S=...; A3=...; GUC=..." (optional but recommended)
-  NEWS_SCRIPT     = "news_search_scraper.py" (optional)
+  DISCORD_TOKEN     = <bot token>                         (required)
+  DISCORD_GUILD_ID  = <your server id>                    (recommended for instant sync)
+  YAHOO_COOKIES     = "A1=...; A1S=...; A3=...; GUC=..."  (optional but helps UK)
+  NEWS_SCRIPT       = "news_search_scraper.py"            (optional)
 """
 
 import os, re, asyncio, subprocess
@@ -20,16 +19,16 @@ import discord
 from discord import app_commands
 from typing import Optional
 
-DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
-YAHOO_COOKIES = os.getenv("YAHOO_COOKIES", "")
-SCRIPT_PATH   = os.getenv("NEWS_SCRIPT", "news_search_scraper.py")
+DISCORD_TOKEN    = os.getenv("DISCORD_TOKEN")
+DISCORD_GUILD_ID = os.getenv("DISCORD_GUILD_ID")  # set for instant (guild) sync
+YAHOO_COOKIES    = os.getenv("YAHOO_COOKIES", "")
+SCRIPT_PATH      = os.getenv("NEWS_SCRIPT", "news_search_scraper.py")
 
 if not DISCORD_TOKEN:
     raise SystemExit("Set DISCORD_TOKEN in env.")
 
 INTENTS = discord.Intents.default()
-INTENTS.message_content = True  # enable for '/TICKER' text shortcut
-
+INTENTS.message_content = True  # for '/TICKER' text shortcut (slash commands don't need this)
 bot  = discord.Client(intents=INTENTS)
 tree = app_commands.CommandTree(bot)
 
@@ -142,6 +141,11 @@ async def slash_news(interaction: discord.Interaction,
     except Exception as e:
         await interaction.followup.send(f"Error: {e}", ephemeral=True)
 
+# quick sanity check command
+@tree.command(name="ping", description="Quick check")
+async def ping_cmd(interaction: discord.Interaction):
+    await interaction.response.send_message("pong 🏓", ephemeral=True)
+
 @bot.event
 async def on_message(message: discord.Message):
     if message.author.bot: return
@@ -162,8 +166,17 @@ async def on_message(message: discord.Message):
 @bot.event
 async def on_ready():
     try:
-        await tree.sync()
-        print(f"Logged in as {bot.user}. Slash commands synced.")
+        app_info = await bot.application_info()
+        print(f"Logged in as {bot.user} • App ID: {app_info.id}")
+        if DISCORD_GUILD_ID:
+            guild_obj = discord.Object(id=int(DISCORD_GUILD_ID))
+            # copy any global commands into guild and sync (instant)
+            tree.copy_global_to(guild=guild_obj)
+            synced = await tree.sync(guild=guild_obj)
+            print(f"Slash commands synced to guild {DISCORD_GUILD_ID} (count={len(synced)}).")
+        else:
+            synced = await tree.sync()  # global sync (can take up to ~1h)
+            print(f"Global slash commands synced (count={len(synced)}).")
     except Exception as e:
         print("Slash sync failed:", e)
 
